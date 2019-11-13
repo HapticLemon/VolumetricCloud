@@ -17,9 +17,12 @@ import (
 //
 func distanciaEsfera(punto Vectores.Vector) float64 {
 	// 10 es el radio de la esfera.
-	var ruido float64 = fbm(punto, 1)
+	//var ruido float64 = fbm(punto, 1)
 
-	var translation = Vectores.Vector{0 + ruido, 0 + ruido, -22.0}
+	//var translation = Vectores.Vector{0 + ruido, 0 + ruido, -22.0}
+	//var translation = Vectores.Vector{0 , 0 , -22.0}
+	var translation = Ruido.CurlNoise(punto.MultiplyByScalar(0.5))
+	translation = Vectores.Vector{translation.X * 3, translation.Y * 3, -20}
 
 	return punto.Sub(translation).Length() - RADIO_ESFERA
 
@@ -97,6 +100,7 @@ func fbm(punto Vectores.Vector, h float64) float64 {
 func raymarch(ro Vectores.Vector, rd Vectores.Vector) color.RGBA {
 
 	var punto Vectores.Vector
+	//var puntoCurl Vectores.Vector
 	var t float64 = 0
 	var densidad float64 = 0
 	var longitud float64 = 0
@@ -105,13 +109,16 @@ func raymarch(ro Vectores.Vector, rd Vectores.Vector) color.RGBA {
 
 	for x := 0; x < MAXSTEPS; x++ {
 		punto = ro.Add(rd.MultiplyByScalar(t))
+		//punto = Ruido.CurlNoise(punto)
 		distancia := distanciaEsfera(punto)
 
 		// Hemos tocado la esfera.
 		// Aplico ruído a la distancia mínima para distorsionar el contorno de la esfera.
-		if distancia < MINIMUM_HIT_DISTANCE-fbm(punto, 0.5) {
+		//if distancia < MINIMUM_HIT_DISTANCE-fbm(punto, 1.5) {
+		if distancia < MINIMUM_HIT_DISTANCE {
 			//return NOISECOLOR
-
+			//puntoCurl = Ruido.CurlNoise(punto)
+			//distancia = distanciaEsfera(puntoCurl)
 			for distancia < RADIO_ESFERA {
 				//densidad += calculaDensidadLineal(punto, longitud)
 				densidad += calculaDensidadLineal(punto, STEP)
