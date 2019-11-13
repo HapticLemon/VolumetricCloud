@@ -17,10 +17,30 @@ import (
 //
 func distanciaEsfera(punto Vectores.Vector) float64 {
 	// 10 es el radio de la esfera.
-	var translation = Vectores.Vector{0, 0, -12.0}
+	var ruido float64 = fbm(punto, 1)
+
+	var translation = Vectores.Vector{0 + ruido, 0 + ruido, -22.0}
 
 	return punto.Sub(translation).Length() - RADIO_ESFERA
 
+}
+
+func sumaOctavas(num_iterations int, punto Vectores.Vector, persistence float64, scale float64, low float64, high float64) float64 {
+	var maxamp float64 = 0
+	var amp float64 = 1
+	var freq float64 = scale
+	var noise float64 = 0
+
+	for i := 0; i < num_iterations; i++ {
+		noise += Ruido.Noise3(punto.X*NOISEZOOM, punto.Y*NOISEZOOM, punto.Z*NOISEZOOM) * amp
+		maxamp += amp
+		amp *= persistence
+		freq *= 2
+	}
+
+	noise /= maxamp
+	noise = noise*(high-low)/2 + (high+low)/2
+	return noise
 }
 
 func calculaDensidadLineal(punto Vectores.Vector, longitud float64) float64 {
@@ -30,6 +50,7 @@ func calculaDensidadLineal(punto Vectores.Vector, longitud float64) float64 {
 
 	noiseValue = (Ruido.Noise3(punto.X*NOISEZOOM, punto.Y*NOISEZOOM, punto.Z*NOISEZOOM)) * 0.015
 	//noiseValue = Ruido.Worley3D(punto) * 0.0025
+	//noiseValue = sumaOctavas(16, punto, .5, 0.007, 0, 255) * 0.00005
 	return math.Abs(noiseValue * longitud)
 }
 
@@ -40,8 +61,8 @@ func applyFog(color color.RGBA, distancia float64, densidad float64) color.RGBA 
 
 	fogAmount = float32(1.0 - math.Pow(math.E, -distancia*densidad)) //* 1.5
 
-	//return mixColor( color, BACKGROUNDCOLOR, fogAmount)
-	return mixColor(BACKGROUNDCOLOR, color, fogAmount)
+	return mixColor(color, BACKGROUNDCOLOR, fogAmount)
+	//return mixColor(BACKGROUNDCOLOR, color, fogAmount)
 }
 
 // Interpolación entre dos colores.
@@ -54,6 +75,23 @@ func mixColor(x color.RGBA, y color.RGBA, a float32) color.RGBA {
 	resultado.B = uint8(float32(x.B)*(1-a) + float32(y.B)*a)
 
 	return resultado
+}
+
+// Implementación de FBM basada en
+// https://www.iquilezles.org/www/articles/fbm/fbm.htm
+//
+func fbm(punto Vectores.Vector, h float64) float64 {
+	var G float64 = math.Exp2(-h)
+	var f float64 = 1.0
+	var a float64 = 1
+	var t float64 = 0
+
+	for i := 0; i < OCTAVES; i++ {
+		t += a * Ruido.Noise3(f*punto.X, f*punto.Y, f*punto.Z)
+		f *= 2
+		a *= G
+	}
+	return t
 }
 
 func raymarch(ro Vectores.Vector, rd Vectores.Vector) color.RGBA {
@@ -70,7 +108,8 @@ func raymarch(ro Vectores.Vector, rd Vectores.Vector) color.RGBA {
 		distancia := distanciaEsfera(punto)
 
 		// Hemos tocado la esfera.
-		if distancia < MINIMUM_HIT_DISTANCE {
+		// Aplico ruído a la distancia mínima para distorsionar el contorno de la esfera.
+		if distancia < MINIMUM_HIT_DISTANCE-fbm(punto, 0.5) {
 			//return NOISECOLOR
 
 			for distancia < RADIO_ESFERA {
